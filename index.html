@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delivery Board</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f2f5; --surface: #ffffff; --surface2: #f7f8fa;
+      --border: rgba(0,0,0,0.08); --navy: #0f1b35; --blue: #2b69d6;
+      --blue-light: #e8effc; --green: #1a8a4a; --green-light: #e4f5ec;
+      --red: #c0392b; --red-light: #fdecea;
+      --text: #1a1e2a; --text2: #5a6173; --text3: #9aa0b0;
+      --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+    }
+    body { font-family: var(--sans); background: var(--bg); min-height: 100vh; padding: 24px 20px; color: var(--text); }
+    input[type=text], input[type=time], input[type=date] {
+      font-family: var(--sans); font-size: 13px; padding: 7px 10px;
+      border: 1.5px solid var(--border); border-radius: 7px; width: 100%;
+      background: var(--surface); color: var(--text); transition: border-color 0.15s; outline: none;
+    }
+    input:focus { border-color: var(--blue); }
+    button { font-family: var(--sans); cursor: pointer; }
+    .wrapper { max-width: 1180px; margin: 0 auto; }
+    .header { background: var(--navy); color: #fff; padding: 18px 24px; border-radius: 12px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .header-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-date { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 3px; font-family: var(--mono); }
+    .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .stat-box { background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.12); border-radius: 9px; padding: 7px 16px; text-align: center; min-width: 72px; }
+    .stat-val { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: rgba(255,255,255,0.55); margin-top: 1px; }
+    .btn-refresh { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #fff; border-radius: 8px; padding: 7px 14px; font-size: 13px; font-weight: 500; }
+    .btn-refresh:hover { background: rgba(255,255,255,0.2); }
+    .statusbar { margin-bottom: 12px; padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; display: none; }
+    .statusbar.error { background: var(--red-light); color: var(--red); display: block; }
+    .statusbar.ok { background: var(--green-light); color: var(--green); display: block; }
+    .statusbar.saving { background: var(--blue-light); color: var(--blue); display: block; }
+    .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .btn-primary { padding: 8px 18px; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }
+    .btn-primary:hover { background: #1f55b8; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-panel { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 18px; display: none; }
+    .form-panel.visible { display: block; }
+    .form-title { font-weight: 700; font-size: 15px; margin-bottom: 14px; color: var(--navy); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+    .form-label { display: flex; flex-direction: column; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); gap: 4px; }
+    .form-label.full { grid-column: 1 / -1; }
+    .form-actions { margin-top: 14px; display: flex; gap: 8px; }
+    .btn-save { padding: 8px 20px; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }
+    .btn-save:hover { background: #1f55b8; }
+    .btn-cancel { padding: 8px 14px; background: transparent; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text2); }
+    .section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .section-title { font-weight: 700; font-size: 15px; }
+    .section-badge { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px; font-family: var(--mono); }
+    .table-wrap { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: var(--surface2); }
+    th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text2); white-space: nowrap; }
+    td { padding: 10px 14px; font-size: 13px; vertical-align: middle; }
+    tbody tr { border-top: 1px solid var(--border); }
+    tbody tr:hover { background: var(--surface2); }
+    .job-num { font-family: var(--mono); font-weight: 600; color: var(--navy); }
+    .time-block { font-family: var(--mono); font-size: 12px; color: var(--text2); line-height: 1.7; }
+    .pill { padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; white-space: nowrap; }
+    .pill.on { background: var(--green-light); color: var(--green); }
+    .pill.off { background: #f0f0f2; color: var(--text3); }
+    .act-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background: transparent; cursor: pointer; }
+    .act-btn.edit { border: 1.5px solid var(--blue); color: var(--blue); }
+    .act-btn.edit:hover { background: var(--blue-light); }
+    .act-btn.del { border: 1.5px solid var(--red); color: var(--red); margin-left: 5px; }
+    .act-btn.del:hover { background: var(--red-light); }
+    .empty-msg { padding: 16px 14px; font-size: 13px; color: var(--text3); }
+    .muted { color: #ccc; }
+    .footer { margin-top: 18px; font-size: 11px; color: var(--text3); text-align: center; font-family: var(--mono); }
+    .hidden { display: none !important; }
+    .loading-overlay { padding: 32px; text-align: center; color: var(--text3); font-size: 13px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="header-title">Cesmic Delivery Board</div>
+      <div class="header-date" id="headerDate"></div>
+    </div>
+    <div class="header-right">
+      <div class="stat-box">
+        <div class="stat-val" style="color:#FAC775" id="statActive">0</div>
+        <div class="stat-label">Active</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#7ED9A0" id="statDelivered">0</div>
+        <div class="stat-label">Delivered</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:#85B7EB" id="statPod">0</div>
+        <div class="stat-label">POD Done</div>
+      </div>
+      <button class="btn-refresh" id="btnRefresh">⟳ Refresh</button>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="statusbar" id="statusbar"></div>
+
+  <!-- Controls -->
+  <div class="controls" id="controls">
+    <button class="btn-primary" id="btnAdd">+ Add Delivery</button>
+    <input type="text" id="searchInput" placeholder="Search…" style="max-width:200px" />
+  </div>
+
+  <!-- Form panel -->
+  <div class="form-panel" id="formPanel">
+    <div class="form-title" id="formTitle">New Delivery</div>
+    <div class="form-grid">
+      <label class="form-label">Job #<input type="text" id="fJobNum" /></label>
+      <label class="form-label">Customer<input type="text" id="fCustomer" /></label>
+      <label class="form-label">Delivery Address<input type="text" id="fAddr" /></label>
+      <label class="form-label">Date Received<input type="date" id="fDateReceived" /></label>
+      <label class="form-label">Date Delivered<input type="date" id="fDateDelivered" /></label>
+      <label class="form-label">Pickup Time<input type="time" id="fPickupTime" /></label>
+      <label class="form-label">Delivery Time<input type="time" id="fDeliveryTime" /></label>
+      <label class="form-label full">Notes<input type="text" id="fNotes" placeholder="Optional…" /></label>
+    </div>
+    <div class="form-actions">
+      <button class="btn-save" id="btnSave">Save</button>
+      <button class="btn-cancel" id="btnCancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Active table -->
+  <div class="section-header">
+    <span class="section-title">Active Deliveries</span>
+    <span class="section-badge" style="background:#FAEEDA;color:#854F0B" id="badgeActive">0</span>
+  </div>
+  <div class="table-wrap" id="activeTable"><div class="loading-overlay">Loading…</div></div>
+
+  <!-- Completed table -->
+  <div class="section-header">
+    <span class="section-title">Completed</span>
+    <span class="section-badge" style="background:#E4F5EC;color:#1a8a4a" id="badgeCompleted">0</span>
+  </div>
+  <div class="table-wrap" id="completedTable"><div class="loading-overlay">Loading…</div></div>
+
+  <div class="footer">Synced with Google Sheets · Auto-refreshes every 30s</div>
+</div>
+
+<script>
+  // ── Hard-coded Apps Script URL ──
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxsagWUGIeJrCbfbeJIy_jGm93Vr71wTstOimyFmCdm9XAryQcex1wFPUxic2ip7r1e/exec";
+
+  let jobs = [];
+  let saving = false;
+  let editId = null;
+  let statusTimer = null;
+
+  const $ = id => document.getElementById(id);
+
+  // ── Helpers ──
+  function fmtDate(val) {
+    if (!val) return null;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
+  }
+
+  function showStatus(type, msg, duration) {
+    const sb = $("statusbar");
+    sb.className = "statusbar " + type;
+    sb.textContent = msg;
+    if (statusTimer) clearTimeout(statusTimer);
+    if (duration !== 0) statusTimer = setTimeout(() => { sb.className = "statusbar"; }, duration || 3000);
+  }
+
+  // ── API via fetch (Apps Script supports CORS for GET requests) ──
+  async function apiFetch(params) {
+    const url = SCRIPT_URL + "?" + new URLSearchParams(params).toString();
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+
+  // ── Fetch all jobs ──
+  async function fetchJobs() {
+    $("btnRefresh").textContent = "Loading…";
+    $("btnRefresh").disabled = true;
+    try {
+      const data = await apiFetch({ action: "getAll" });
+      jobs = data.jobs || [];
+      render();
+    } catch(e) {
+      showStatus("error", "Could not load data: " + e.message, 0);
+    } finally {
+      $("btnRefresh").textContent = "⟳ Refresh";
+      $("btnRefresh").disabled = false;
+    }
+  }
+
+  // ── API mutation call ──
+  async function apiCall(payload) {
+    saving = true;
+    $("btnSave").disabled = true;
+    showStatus("saving", "Saving…", 0);
+    try {
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      const data = await apiFetch({ payload: JSON.stringify(payload) });
+      jobs = data.jobs || [];
+      showStatus("ok", "✓ Saved");
+      render();
+      return true;
+    } catch(e) {
+      showStatus("error", "❌ " + e.message, 0);
+      return false;
+    } finally {
+      saving = false;
+      $("btnSave").disabled = false;
+    }
+  }
+
+  // ── Toggle pill ──
+  async function toggle(id, field) {
+    const job = jobs.find(j => String(j.id) === String(id));
+    if (!job) return;
+    await apiCall({ action: "update", job: { ...job, [field]: !job[field] } });
+  }
+
+  // ── Edit ──
+  function openEdit(j) {
+    editId = j.id;
+    $("formTitle").textContent = "Edit Delivery";
+    $("fJobNum").value        = j.jobNum || "";
+    $("fCustomer").value      = j.customer || "";
+    $("fAddr").value          = j.deliveryAddr || "";
+    $("fDateReceived").value  = (j.dateReceived  || "").substring(0,10);
+    $("fDateDelivered").value = (j.dateDelivered || "").substring(0,10);
+    $("fPickupTime").value    = j.pickupTime  || "";
+    $("fDeliveryTime").value  = j.deliveryTime || "";
+    $("fNotes").value         = j.notes || "";
+    $("formPanel").classList.add("visible");
+    $("formPanel").scrollIntoView({ behavior:"smooth", block:"nearest" });
+  }
+
+  // ── Delete ──
+  async function remove(id) {
+    if (!confirm("Delete this delivery?")) return;
+    await apiCall({ action: "delete", id });
+  }
+
+  // ── Render ──
+  function render() {
+    const q = $("searchInput").value.toLowerCase();
+    const filtered = q ? jobs.filter(j =>
+      String(j.jobNum||"").toLowerCase().includes(q) ||
+      String(j.customer||"").toLowerCase().includes(q) ||
+      String(j.deliveryAddr||"").toLowerCase().includes(q)
+    ) : jobs;
+
+    const active    = filtered.filter(j => !j.delivered);
+    const completed = filtered.filter(j =>  j.delivered);
+
+    $("statActive").textContent    = jobs.filter(j => !j.delivered).length;
+    $("statDelivered").textContent = jobs.filter(j =>  j.delivered).length;
+    $("statPod").textContent       = jobs.filter(j =>  j.pod).length;
+    $("badgeActive").textContent    = active.length;
+    $("badgeCompleted").textContent = completed.length;
+
+    $("activeTable").innerHTML    = buildTable(active);
+    $("completedTable").innerHTML = buildTable(completed);
+  }
+
+  function buildTable(rows) {
+    if (!rows.length) return '<p class="empty-msg">No deliveries here.</p>';
+
+    const trs = rows.map(j => {
+      const times = (j.pickupTime || j.deliveryTime)
+        ? `${j.pickupTime   ? `<div>↑ ${j.pickupTime}</div>`  : ""}
+           ${j.deliveryTime ? `<div>↓ ${j.deliveryTime}</div>` : ""}`
+        : `<span class="muted">—</span>`;
+
+      const dateRec = fmtDate(j.dateReceived)  || '<span class="muted">—</span>';
+      const dateDel = fmtDate(j.dateDelivered) || '<span class="muted">—</span>';
+      const notes   = j.notes ? esc(j.notes) : '<span class="muted">—</span>';
+      const delivered = j.delivered === true || j.delivered === "TRUE" || j.delivered === "true";
+      const pod       = j.pod       === true || j.pod       === "TRUE" || j.pod       === "true";
+
+      return `<tr>
+        <td><span class="job-num">${esc(j.jobNum)}</span></td>
+        <td>${esc(j.customer)}</td>
+        <td>${esc(j.deliveryAddr||"")}</td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${dateRec}</td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${dateDel}</td>
+        <td><div class="time-block">${times}</div></td>
+        <td style="text-align:center">
+          <button class="pill ${delivered ? 'on' : 'off'}" onclick="toggle('${j.id}','delivered')">
+            ${delivered ? "✓ Yes" : "No"}
+          </button>
+        </td>
+        <td style="text-align:center">
+          <button class="pill ${pod ? 'on' : 'off'}" onclick="toggle('${j.id}','pod')">
+            ${pod ? "✓ Yes" : "No"}
+          </button>
+        </td>
+        <td style="color:#5a6173">${notes}</td>
+        <td style="white-space:nowrap">
+          <button class="act-btn edit" onclick='openEdit(${JSON.stringify(j)})'>Edit</button>
+          <button class="act-btn del"  onclick="remove('${j.id}')">Del</button>
+        </td>
+      </tr>`;
+    }).join("");
+
+    return `<div class="table-scroll"><table>
+      <thead><tr>
+        <th>Job #</th><th>Customer</th><th>Delivery Address</th>
+        <th>Date Received</th><th>Date Delivered</th>
+        <th>Times</th><th>Delivered</th><th>POD Received</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>${trs}</tbody>
+    </table></div>`;
+  }
+
+  function esc(s) {
+    return String(s||"")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ── Event listeners ──
+  $("btnRefresh").addEventListener("click", fetchJobs);
+  $("searchInput").addEventListener("input", render);
+
+  $("btnAdd").addEventListener("click", () => {
+    editId = null;
+    $("formTitle").textContent = "New Delivery";
+    ["fJobNum","fCustomer","fAddr","fDateReceived","fDateDelivered","fPickupTime","fDeliveryTime","fNotes"]
+      .forEach(id => $(id).value = "");
+    $("formPanel").classList.add("visible");
+  });
+
+  $("btnCancel").addEventListener("click", () => $("formPanel").classList.remove("visible"));
+
+  $("btnSave").addEventListener("click", async () => {
+    const jobNum   = $("fJobNum").value.trim();
+    const customer = $("fCustomer").value.trim();
+    if (!jobNum || !customer) { alert("Job # and Customer are required."); return; }
+    const job = {
+      jobNum, customer,
+      deliveryAddr:  $("fAddr").value.trim(),
+      dateReceived:  $("fDateReceived").value,
+      dateDelivered: $("fDateDelivered").value,
+      pickupTime:    $("fPickupTime").value,
+      deliveryTime:  $("fDeliveryTime").value,
+      notes:         $("fNotes").value.trim(),
+      pod: false, delivered: false
+    };
+    let ok;
+    if (editId !== null) {
+      ok = await apiCall({ action: "update", job: { ...job, id: editId } });
+    } else {
+      ok = await apiCall({ action: "add", job });
+    }
+    if (ok) $("formPanel").classList.remove("visible");
+  });
+
+  // ── Init ──
+  $("headerDate").textContent = new Date().toLocaleDateString("en-US", {
+    weekday:"long", month:"long", day:"numeric", year:"numeric"
+  });
+
+  fetchJobs();
+  setInterval(fetchJobs, 30000);
+</script>
+</body>
+</html>
